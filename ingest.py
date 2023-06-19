@@ -2,7 +2,12 @@ import logging
 import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
+from langchain.document_loaders import TextLoader, PDFMinerLoader, CSVLoader, BSHTMLLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import Chroma
+
 import click
+
 from langchain.docstore.document import Document
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -16,7 +21,6 @@ from constants import (
     PERSIST_DIRECTORY,
     SOURCE_DIRECTORY,
 )
-
 
 def load_single_document(file_path: str) -> Document:
     # Loads a single document from a file path
@@ -71,6 +75,7 @@ def load_documents(source_dir: str) -> list[Document]:
             docs.extend(contents)
 
     return docs
+
 
 
 @click.command()
