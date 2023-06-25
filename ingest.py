@@ -1,22 +1,25 @@
 import logging
 import os
+import shutil
+import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
-import click
 from langchain.docstore.document import Document
 from langchain.embeddings import HuggingFaceInstructEmbeddings
-from langchain.text_splitter import Language, RecursiveCharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 
-from constants import (
+from config import (
     CHROMA_SETTINGS,
     DOCUMENT_MAP,
     EMBEDDING_MODEL_NAME,
     INGEST_THREADS,
     PERSIST_DIRECTORY,
+    RESET_DB,
     SOURCE_DIRECTORY,
+    EMBEDDING_MODEL_NAME,
+    DEVICE_TYPE
 )
-
 
 def load_single_document(file_path: str) -> Document:
     # Loads a single document from a file path
@@ -72,74 +75,24 @@ def load_documents(source_dir: str) -> list[Document]:
 
     return docs
 
-
-def split_documents(documents: list[Document]) -> tuple[list[Document], list[Document]]:
-    # Splits documents for correct Text Splitter
-    text_docs, python_docs = [], []
-    for doc in documents:
-        file_extension = os.path.splitext(doc.metadata["source"])[1]
-        if file_extension == ".py":
-            python_docs.append(doc)
-        else:
-            text_docs.append(doc)
-
-    return text_docs, python_docs
-
-
-@click.command()
-@click.option(
-    "--device_type",
-    default="cuda",
-    type=click.Choice(
-        [
-            "cpu",
-            "cuda",
-            "ipu",
-            "xpu",
-            "mkldnn",
-            "opengl",
-            "opencl",
-            "ideep",
-            "hip",
-            "ve",
-            "fpga",
-            "ort",
-            "xla",
-            "lazy",
-            "vulkan",
-            "mps",
-            "meta",
-            "hpu",
-            "mtia",
-        ],
-    ),
-    help="Device to run on. (Default is cuda)",
-)
-def main(device_type):
-    # Load documents and split in chunks
+def create_db():
+    if os.path.exists(PERSIST_DIRECTORY):
+        print(type(RESET_DB))
+        if RESET_DB: 
+            logging.info(f"DB Already Exists - Removing it") 
+            shutil.rmtree(PERSIST_DIRECTORY) 
+        else: 
+            logging.info(f"DB Already Exists - Using the existing DB")
+    
     logging.info(f"Loading documents from {SOURCE_DIRECTORY}")
+    
     documents = load_documents(SOURCE_DIRECTORY)
-    text_documents, python_documents = split_documents(documents)
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    python_splitter = RecursiveCharacterTextSplitter.from_language(
-        language=Language.PYTHON, chunk_size=1000, chunk_overlap=200
-    )
-    texts = text_splitter.split_documents(text_documents)
-    texts.extend(python_splitter.split_documents(python_documents))
+    texts = text_splitter.split_documents(documents)
     logging.info(f"Loaded {len(documents)} documents from {SOURCE_DIRECTORY}")
     logging.info(f"Split into {len(texts)} chunks of text")
 
-    # Create embeddings
-    embeddings = HuggingFaceInstructEmbeddings(
-        model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": device_type},
-    )
-    # change the embedding type here if you are running into issues.
-    # These are much smaller embeddings and will work for most appications
-    # If you use HuggingFaceEmbeddings, make sure to also use the same in the
-    # run_localGPT.py file.
-
-    # embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+    embeddings = HuggingFaceInstructEmbeddings(model_name=EMBEDDING_MODEL_NAME, model_kwargs={"device": DEVICE_TYPE})
 
     db = Chroma.from_documents(
         texts,
@@ -150,9 +103,6 @@ def main(device_type):
     db.persist()
     db = None
 
-
-if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(message)s", level=logging.INFO
-    )
-    main()
+if __name__=="__main__":
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(filename)s:%(lineno)s - %(message)s", level=logging.INFO)
+    create_db()
