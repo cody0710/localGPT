@@ -10,27 +10,23 @@ Ask questions to your documents without an internet connection, using the power 
 
 Built with [LangChain](https://github.com/hwchase17/langchain) and [Vicuna-7B](https://huggingface.co/TheBloke/vicuna-7B-1.1-HF) and [InstructorEmbeddings](https://instructor-embedding.github.io/)
 
-# Environment Setup
 
+# Environment Setup
 In order to set your environment up to run the code here, first install all requirements:
 
 ```shell
 pip install -r requirements.txt
 ```
-
 Then install AutoGPTQ - if you want to run quantized models for GPU
-
 ```shell
 git clone https://github.com/PanQiWei/AutoGPTQ.git
 cd AutoGPTQ
 git checkout v0.2.2
 pip install .
 ```
-
 For more support on [AutoGPTQ] (https://github.com/PanQiWei/AutoGPTQ).
 
 ## Test dataset
-
 This repo uses a [Constitution of USA ](https://constitutioncenter.org/media/files/constitution.pdf) as an example.
 
 ## Instructions for ingesting your own dataset
@@ -39,6 +35,7 @@ Put any and all of your .txt, .pdf, or .csv files into the SOURCE_DOCUMENTS dire
 in the load_documents() function, replace the docs_path with the absolute path of your source_documents directory.
 
 The current default file types are .txt, .pdf, .csv, and .xlsx, if you want to use any other file type, you will need to convert it to one of the default file types.
+
 
 Run the following command to ingest all the data.
 
@@ -64,10 +61,16 @@ If you want to start from an empty database, delete the `index`.
 
 Note: When you run this for the first time, it will download take time as it has to download the embedding model. In the subseqeunt runs, no data will leave your local enviroment and can be run without internet connection.
 
+
+
 ## Ask questions to your documents, locally!
-
-In order to ask a question, run a command like:
-
+In order to ask a question, run the below command:
+the cli provides 5 options to run the script.
+  * --model_id  The huggingface model id Defaults to *TheBloke/WizardLM-7B-uncensored-GPTQ*
+  * --model_basename The huggingface model basename Defaults to *WizardLM-7B-uncensored-GPTQ-4bit-128g.compat.no-act-order.safetensors* this is required for quantized models, leave as none for non-quantized models
+  * --embedding_model The embedding model to use. Defaults to *hkunlp/instructor-large* same as the one used in ingest.py
+  * --device_type The device type to use. Defaults to cuda
+  * --show_sources Whether to show the sources of the answer. Defaults to false
 ```shell
 python run_localGPT.py
 ```
@@ -85,15 +88,12 @@ Note: When you run this for the first time, it will need internet connection to 
 Type `exit` to finish the script.
 
 # Run it on CPU
-
 By default, localGPT will use your GPU to run both the `ingest.py` and `run_localGPT.py` scripts. But if you do not have a GPU and want to run this on CPU, now you can do that (Warning: Its going to be slow!). You will need to use `--device_type cpu`flag with both scripts.
 
 For Ingestion run the following:
-
 ```shell
 python ingest.py --device_type cpu
 ```
-
 In order to ask a question, run a command like:
 
 ```shell
@@ -140,7 +140,6 @@ python run_localGPT.py --device_type cpu
 10. Open up a web browser and go the address `http://localhost:5111/`.
 
 # How does it work?
-
 Selecting the right local models and the power of `LangChain` you can run the entire pipeline locally, without any data leaving your environment, and with reasonable performance.
 
 - `ingest.py` uses `LangChain` tools to parse the document and create embeddings locally using `InstructorEmbeddings`. It then stores the result in a local vector database using `Chroma` vector store.
@@ -148,60 +147,50 @@ Selecting the right local models and the power of `LangChain` you can run the en
 - You can replace this local LLM with any other LLM from the HuggingFace. Make sure whatever LLM you select is in the HF format.
 
 # How to select different LLM models?
-
 The following will provide instructions on how you can select a different LLM model to create your response:
-
 1. Open up `run_localGPT.py`
-2. Go to `def main(device_type, show_sources)`
+2. Go to `def main(device_type, model_id, model_basename):`
 3. Go to the comment where it says `# load the LLM for generating Natural Language responses`
 4. Below it, it details a bunch of examples on models from HuggingFace that have already been tested to be run with the original trained model (ending with HF or have a .bin in its "Files and versions"), and quantized models (ending with GPTQ or have a .no-act-order or .safetensors in its "Files and versions").
 5. For models that end with HF or have a .bin inside its "Files and versions" on its HuggingFace page.
+   * Make sure you have a model_id selected. For example -> `model_id = "TheBloke/guanaco-7B-HF"`
+   * If you go to its HuggingFace [Site] (https://huggingface.co/TheBloke/guanaco-7B-HF) and go to "Files and versions" you will notice model files that end with a .bin extension.
+   * Any model files that contain .bin extensions will be run with the following code where the `# load the LLM for generating Natural Language responses` comment is found.
+   *    `model_id = "TheBloke/guanaco-7B-HF"`
 
-   - Make sure you have a model_id selected. For example -> `model_id = "TheBloke/guanaco-7B-HF"`
-   - If you go to its HuggingFace [Site] (https://huggingface.co/TheBloke/guanaco-7B-HF) and go to "Files and versions" you will notice model files that end with a .bin extension.
-   - Any model files that contain .bin extensions will be run with the following code where the `# load the LLM for generating Natural Language responses` comment is found.
-   - `model_id = "TheBloke/guanaco-7B-HF"`
-
-     `llm = load_model(device_type, model_id=model_id)`
-
+        `llm = load_model(device_type, model_id=model_id)`
 6. For models that contain GPTQ in its name and or have a .no-act-order or .safetensors extension inside its "Files and versions on its HuggingFace page.
+   * Make sure you have a model_id selected. For example -> model_id = `"TheBloke/wizardLM-7B-GPTQ"`
+   * You will also need its model basename file selected. For example -> `model_basename = "wizardLM-7B-GPTQ-4bit.compat.no-act-order.safetensors"`
+   * If you go to its HuggingFace [Site] (https://huggingface.co/TheBloke/wizardLM-7B-GPTQ) and go to "Files and versions" you will notice a model file that ends with a .safetensors extension.
+   * Any model files that contain no-act-order or .safetensors extensions will be run with the following code where the `# load the LLM for generating Natural Language responses` comment is found.
+   *    `model_id = "TheBloke/WizardLM-7B-uncensored-GPTQ"`
 
-   - Make sure you have a model_id selected. For example -> model_id = `"TheBloke/wizardLM-7B-GPTQ"`
-   - You will also need its model basename file selected. For example -> `model_basename = "wizardLM-7B-GPTQ-4bit.compat.no-act-order.safetensors"`
-   - If you go to its HuggingFace [Site] (https://huggingface.co/TheBloke/wizardLM-7B-GPTQ) and go to "Files and versions" you will notice a model file that ends with a .safetensors extension.
-   - Any model files that contain no-act-order or .safetensors extensions will be run with the following code where the `# load the LLM for generating Natural Language responses` comment is found.
-   - `model_id = "TheBloke/WizardLM-7B-uncensored-GPTQ"`
+        `model_basename = "WizardLM-7B-uncensored-GPTQ-4bit-128g.compat.no-act-order.safetensors"`
 
-     `model_basename = "WizardLM-7B-uncensored-GPTQ-4bit-128g.compat.no-act-order.safetensors"`
-
-     `llm = load_model(device_type, model_id=model_id, model_basename = model_basename)`
-
+        `llm = load_model(device_type, model_id=model_id, model_basename = model_basename)`
 7. Comment out all other instances of `model_id="other model names"`, `model_basename=other base model names`, and `llm = load_model(args*)`
-
 # System Requirements
 
 ## Python Version
-
 To use this software, you must have Python 3.10 or later installed. Earlier versions of Python will not compile.
 
 ## C++ Compiler
-
 If you encounter an error while building a wheel during the `pip install` process, you may need to install a C++ compiler on your computer.
 
 ### For Windows 10/11
-
 To install a C++ compiler on Windows 10/11, follow these steps:
 
 1. Install Visual Studio 2022.
 2. Make sure the following components are selected:
-   - Universal Windows Platform development
-   - C++ CMake tools for Windows
+   * Universal Windows Platform development
+   * C++ CMake tools for Windows
 3. Download the MinGW installer from the [MinGW website](https://sourceforge.net/projects/mingw/).
 4. Run the installer and select the "gcc" component.
 
 ### NVIDIA Driver's Issues:
-
 Follow this [page](https://linuxconfig.org/how-to-install-the-nvidia-drivers-on-ubuntu-22-04) to install NVIDIA Drivers.
+
 
 ### M1/M2 Macbook users:
 
@@ -220,29 +209,28 @@ pip install pdfminer.six
 pip install xformers
 ```
 
+
 3- Create a new `verifymps.py` in the same directory (localGPT) where you have all files and environment.
 
-    import torch
-    if torch.backends.mps.is_available():
-        mps_device = torch.device("mps")
-        x = torch.ones(1, device=mps_device)
-        print (x)
-    else:
-        print ("MPS device not found.")
+	import torch
+	if torch.backends.mps.is_available():
+	    mps_device = torch.device("mps")
+	    x = torch.ones(1, device=mps_device)
+	    print (x)
+	else:
+	    print ("MPS device not found.")
 
-4- Find `instructor.py` and open it in VS Code to edit.
+ 4- Find `instructor.py` and open it in VS Code to edit.
 
-The `instructor.py` is probably embeded similar to this:
+ The `instructor.py` is probably embeded similar to this:
 
-    file_path = "/System/Volumes/Data/Users/USERNAME/anaconda3/envs/LocalGPT/lib/python3.10/site-packages/InstructorEmbedding/instructor.py"
+	file_path = "/System/Volumes/Data/Users/USERNAME/anaconda3/envs/LocalGPT/lib/python3.10/site-packages/InstructorEmbedding/instructor.py"
 
-You can open the `instructor.py` and then edit it using this code:
+ You can open the `instructor.py` and then edit it using this code:
+ #### Open the file in VSCode
+	subprocess.run(["open", "-a", "Visual Studio Code", file_path])
 
-#### Open the file in VSCode
-
-    subprocess.run(["open", "-a", "Visual Studio Code", file_path])
-
-Once you open `instructor.py` with VS Code, replace the code snippet that has `device_type` with the following codes:
+ Once you open `instructor.py` with VS Code, replace the code snippet that has `device_type` with the following codes:
 
          if device is None:
             device = self._target_device
@@ -264,6 +252,6 @@ Once you open `instructor.py` with VS Code, replace the code snippet that has `d
 
 [![Star History Chart](https://api.star-history.com/svg?repos=PromtEngineer/localGPT&type=Date)](https://star-history.com/#PromtEngineer/localGPT&Date)
 
-# Disclaimer
 
+# Disclaimer
 This is a test project to validate the feasibility of a fully local solution for question answering using LLMs and Vector embeddings. It is not production ready, and it is not meant to be used in production. Vicuna-7B is based on the Llama model so that has the original Llama license.
