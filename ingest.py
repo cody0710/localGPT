@@ -30,7 +30,7 @@ def load_single_document(file_path: str) -> Document:
     return loader.load()[0]
 
 
-def load_document_batch(filepaths):
+def load_document_batch(filepaths: list[str]) -> tuple[list[Document], list[str]]:
     logging.info("Loading document batch")
     # create a thread pool
     with ThreadPoolExecutor(len(filepaths)) as exe:
@@ -116,7 +116,7 @@ def split_documents(documents: list[Document]) -> tuple[list[Document], list[Doc
     ),
     help="Device to run on. (Default is cuda)",
 )
-def main(device_type):
+def main(device_type: str):
     # Load documents and split in chunks
     logging.info(f"Loading documents from {SOURCE_DIRECTORY}")
     documents = load_documents(SOURCE_DIRECTORY)
