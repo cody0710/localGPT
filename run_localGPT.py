@@ -1,45 +1,43 @@
-import os
 import logging
+import os
+
 import click
 import torch
-import utils
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler  # for streaming response
 from langchain.chains import RetrievalQA
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.llms import HuggingFacePipeline
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler  # for streaming response
-from langchain.callbacks.manager import CallbackManager
+
+import utils
 
 callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
-from prompt_template_utils import get_prompt_template
-from utils import get_embeddings
-
 # from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.vectorstores import Chroma
-from transformers import (
-    GenerationConfig,
-    pipeline,
-)
+from transformers import GenerationConfig, pipeline
 
+from constants import (
+    CHROMA_SETTINGS,
+    EMBEDDING_MODEL_NAME,
+    MAX_NEW_TOKENS,
+    MODEL_BASENAME,
+    MODEL_ID,
+    MODELS_PATH,
+    PERSIST_DIRECTORY,
+    REVISION,
+)
 from load_models import (
+    load_full_model,
     load_quantized_model_awq,
     load_quantized_model_gguf_ggml,
     load_quantized_model_qptq,
-    load_full_model,
 )
-
-from constants import (
-    EMBEDDING_MODEL_NAME,
-    PERSIST_DIRECTORY,
-    MODEL_ID,
-    MODEL_BASENAME,
-    MAX_NEW_TOKENS,
-    MODELS_PATH,
-    CHROMA_SETTINGS,
-)
+from prompt_template_utils import get_prompt_template
+from utils import get_embeddings
 
 
-def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
+def load_model(device_type, model_id, revision="main", model_basename=None, LOGGING=logging):
     """
     Select a model for text generation using the HuggingFace library.
     If you are running this for the first time, it will download a model for you.
@@ -48,6 +46,7 @@ def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
     Args:
         device_type (str): Type of device to use, e.g., "cuda" for GPU or "cpu" for CPU.
         model_id (str): Identifier of the model to load from HuggingFace's model hub.
+        revision (str, optional): Revision/branch of the model to load. Defaults to "main".
         model_basename (str, optional): Basename of the model if using quantized models.
             Defaults to None.
 
@@ -69,7 +68,7 @@ def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
         elif ".awq" in model_basename.lower():
             model, tokenizer = load_quantized_model_awq(model_id, LOGGING)
         else:
-            model, tokenizer = load_quantized_model_qptq(model_id, model_basename, device_type, LOGGING)
+            model, tokenizer = load_quantized_model_qptq(model_id, revision, model_basename, device_type, LOGGING)
     else:
         model, tokenizer = load_full_model(model_id, model_basename, device_type, LOGGING)
 
@@ -122,7 +121,7 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="llama"):
 
     """
     (1) Chooses an appropriate langchain library based on the enbedding model name.  Matching code is contained within ingest.py.
-    
+
     (2) Provides additional arguments for instructor and BGE models to improve results, pursuant to the instructions contained on
     their respective huggingface repository, project page or github repository.
     """
@@ -139,7 +138,7 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="llama"):
     prompt, memory = get_prompt_template(promptTemplate_type=promptTemplate_type, history=use_history)
 
     # load the llm pipeline
-    llm = load_model(device_type, model_id=MODEL_ID, model_basename=MODEL_BASENAME, LOGGING=logging)
+    llm = load_model(device_type, model_id=MODEL_ID, revision=REVISION, model_basename=MODEL_BASENAME, LOGGING=logging)
 
     if use_history:
         qa = RetrievalQA.from_chain_type(
@@ -211,7 +210,7 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="llama"):
     "--model_type",
     default="llama",
     type=click.Choice(
-        ["llama", "mistral", "non_llama"],
+        ["llama", "mistral", "non_llama", "hermes", "vicuna"],
     ),
     help="model type, llama, mistral or non_llama",
 )
